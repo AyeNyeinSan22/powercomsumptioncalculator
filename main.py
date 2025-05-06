@@ -1,4 +1,5 @@
 import hashlib
+import datetime
 
 # Password hashing function
 def hash_password(password):
@@ -6,18 +7,20 @@ def hash_password(password):
 
 # Initialize appliances list
 appliances = [
-    {"name": "Electric Fan", "power_watts": 75, "hours_per_day": 9, "days": 30},
-    {"name": "Refrigerator", "power_watts": 175, "hours_per_day": 24, "days": 30},
-    {"name": "Television", "power_watts": 120, "hours_per_day": 7, "days": 30},
+    {"name": "Electric Fan", "power_watts": 75, "hours_per_day": 9, "days": 30,"warranty":"1 year"},
+    {"name": "Refrigerator", "power_watts": 175, "hours_per_day": 24, "days": 30,"warranty":"6 months"},
+    {"name": "Television", "power_watts": 120, "hours_per_day": 7, "days": 30,"warranty":"4 months"},
 ]
 
 # In-memory user database
-users_db = {}
+users_db = {
+    
+}
 
 # User registration
 def register():
     global users_db
-    print("\n   Registration  ")
+    print("\n----- Registration ----- ")
     user_name = input("Enter User Name: ")
     user_email = input("Enter Your Email: ")
 
@@ -54,16 +57,14 @@ def login():
 
     # Search for user by email
     for user in users_db.values():
-        if user["email"] == user_email:
-            if user["password"] == hashed_pwd:
-                print(f"Welcome back, {user['name']}!\n")
-                return
-            else:
-                print("Incorrect password.\n")
-                return
+        if user["email"] == user_email and user["password"] == hashed_pwd:
+            print(f"Welcome back, {user['name']}!\n")
+            power_calculator()
+        else:
+            print("Incorrect password or email.\n")
+             
 
-    print("User not found. Redirecting to registration...\n")
-    register()
+    
 
 def calculate_energy_consumption(watts, hours_per_day, days):
     kilowatts = watts / 1000  # convert watts to kilowatts
@@ -75,9 +76,9 @@ def display_appliances(appliances):
         return
     print("\n--- Current Appliances ---")
     for idx, app in enumerate(appliances, start=1):
-        print(f"{idx}. {app['name']} - {app['power_watts']}W, {app['hours_per_day']} hrs/day, {app['days']} days")
+        print(f"{idx}. {app['name']} - {app['power_watts']}W, {app['hours_per_day']} hrs/day, {app['days']} days, {app['warranty']}")
 
-def view_report(appliances, cost_per_kwh):
+def view_report(appliances, cost_per_kwh,alert=2000):
     total_energy = 0
     total_cost = 0
     if not appliances:
@@ -93,7 +94,21 @@ def view_report(appliances, cost_per_kwh):
     print("\n--- Summary ---")
     print(f"Total Energy Consumed: {total_energy:.2f} kWh")
     print(f"Total Estimated Cost: {total_cost:.2f}")
-
+    
+    # ⚠️ Alert if cost is too high
+    if total_cost > alert:
+        print("\n⚠️ ALERT: Your total estimated cost exceeds ₱{:.2f}!".format(alert))
+        print("   Consider reducing appliance usage or checking for high-consuming devices.")
+        
+    # Warranty alert for items with less than 6 months warranty
+    for appliance in appliances:
+    # Extract number of months from warranty string
+      warranty_str = str(appliance["warranty"]).lower()
+      if "month" in warranty_str:
+        months = int(warranty_str.split()[0])
+        if months < 6:
+            print(f"🔧 WARRANTY ALERT: '{appliance['name']}' has only {appliance['warranty']} warranty left!")
+              
 # Power Consumption Calculator
 def power_calculator():
     global appliances
@@ -110,9 +125,10 @@ def power_calculator():
             print("3️⃣  Delete Appliance")
             print("4️⃣  View Appliances and Report")
             print("5️⃣  View Summary Only")
-            print("6️⃣  Sort Appliances by Cost or Energy")
-            print("7️⃣  Save and Exit")
-
+            print("6️⃣  Monthly Report")
+            print("7️⃣  Sort Appliances by Cost or Energy")
+            print("8️⃣  Save and Exit")
+            
             choice = input("➡️  Choose an option (1-7): ")
 
             if choice == "1":
@@ -121,11 +137,14 @@ def power_calculator():
                 power_watts = float(input(f"🔌 Power rating of {name} (in watts): "))
                 hours_per_day = float(input(f"⏰ Hours used per day for {name}: "))
                 days = int(input(f"📅 Number of days used: "))
+                warranty = int(input(f"📅 Warranty in years or months: "))
                 appliances.append({
                     "name": name,
                     "power_watts": power_watts,
                     "hours_per_day": hours_per_day,
-                    "days": days
+                    "days": days,
+                    "warranty": warranty
+                    
                 })
                 print(f"✅ {name} added successfully.")
 
@@ -164,7 +183,7 @@ def power_calculator():
             elif choice == "4":
                 # View full report
                 display_appliances(appliances)
-                view_report(appliances, cost_per_kwh)
+                view_report(appliances, cost_per_kwh,alert=2000)
 
             elif choice == "5":
                 # View summary only
@@ -176,8 +195,12 @@ def power_calculator():
                 print("\n📈 ━━━ SUMMARY ━━━")
                 print(f"Total Energy: {total_energy:.2f} kWh")
                 print(f"Total Cost:   {total_cost:.2f} currency units")
-
-            elif choice == "6":
+                
+            elif choice == '6':
+                cost_per_kwh = float(input("Enter cost per kWh: "))
+                display_monthly_report(appliances, cost_per_kwh) 
+                
+            elif choice == "7":
                 # Sort appliances
                 print("\n🔽 Sort by:")
                 print("1. Cost (Highest First)")
@@ -200,7 +223,24 @@ def power_calculator():
                     cost = energy * cost_per_kwh
                     print(f"- {app['name']}: {energy:.2f} kWh, Cost: {cost:.2f}")
 
-            elif choice == "7":
+            elif choice == "8":
+                if appliances:
+                    filename = f"electricity_report_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                    with open(filename, "w") as f:
+                        f.write("--- Consumption Report ---\n")
+                        total_energy = 0
+                        total_cost = 0
+                        for app in appliances:
+                            energy = calculate_energy_consumption(app['power_watts'], app['hours_per_day'], app['days'])
+                            cost = energy * cost_per_kwh
+                            f.write(f"{app['name']}: {energy:.2f} kWh, Cost: {cost:.2f}\n")
+                            total_energy += energy
+                            total_cost += cost
+                        f.write("\n--- Summary ---\n")
+                        f.write(f"Total Energy Consumed: {total_energy:.2f} kWh\n")
+                        f.write(f"Total Estimated Cost: {total_cost:.2f}\n")
+                    print(f"\nReport saved as {filename}")
+                
                 print("👋 Goodbye! Your session is complete.")
                 break
 
@@ -244,22 +284,6 @@ def display_monthly_report(appliances, cost_per_kwh):
     print(f"🔺 Most Expensive Appliance: {highest['name']} (${highest['cost']:.2f})")
     print(f"🔻 Least Expensive Appliance: {lowest['name']} (${lowest['cost']:.2f})\n")
 
-def edit_user_profile(profile):
-    print("\n📝 Edit User Profile")
-    print("Leave input blank to keep current value.\n")
-
-    new_name = input(f"Current Name: {profile.get('name', 'N/A')} → New Name: ") or profile.get('name')
-    new_email = input(f"Current Email: {profile.get('email', 'N/A')} → New Email: ") or profile.get('email')
-    new_address = input(f"Current Address: {profile.get('address', 'N/A')} → New Address: ") or profile.get('address')
-
-    # Update the profile
-    profile['name'] = new_name
-    profile['email'] = new_email
-    profile['address'] = new_address
-
-    print("\n✅ Profile successfully updated.")
-    return profile
-
 
 # Contact Us
 def contact_us():
@@ -276,36 +300,25 @@ def contact_us():
 # Main Menu
 def main():
     while True:
-        print("\n--- Main Menu ---")
-        print("1. Registration")
-        print("2. Login")
-        print("3. Power Consumption Calculation")
-        print("4. Monthly Report")
-        print("5. Edit Profile")
-        print("6. Contact Us")
-        print("7. Exit")
+            print("\n--- Main Menu ---")
+            print("1. Registration")
+            print("2. Login")
+            print("3. Contact Us")
+            print("4. Exit")
+            choice = input("Choose an option (1-4): ")
 
-        choice = input("Choose an option (1-7): ")
+            if choice == '1':
+                register()
+            elif choice == '2':
+                logged_in = login()  # This will set logged_in = True if login is successful
+            elif choice == '3':
+                contact_us()
+            elif choice == '4':
+                print("Goodbye!")
+                break
+            else:
+                print("Invalid choice. Please choose a valid option.")
 
-        if choice == '1':
-            register()
-        elif choice == '2':
-            login()
-        elif choice == '3':
-            power_calculator()
-        elif choice == '4':
-            cost_per_kwh = float(input("Enter cost per kWh: "))
-            display_monthly_report(appliances, cost_per_kwh)
-        elif choice == '5':
-            user_name = input("Enter your username: ")
-            edit_user_profile(user_name)
-        elif choice == '6':
-            contact_us()
-        elif choice == '7':
-            print("Goodbye!")
-            break
-        else:
-            print("Invalid choice. Please choose a valid option.")
 
 # Run the program
 main()
